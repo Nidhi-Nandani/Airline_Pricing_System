@@ -1,0 +1,128 @@
+import React from 'react';
+import { 
+  createBrowserRouter,
+  RouterProvider,
+  Navigate 
+} from 'react-router-dom';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import Landing from './components/Landing';
+import FlightSearch from './components/FlightSearch';
+import BookingHistory from './components/BookingHistory';
+import PriceAnalytics from './components/PriceAnalytics';
+import Navbar from './components/Navbar';
+
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1565c0', // Professional blue
+      light: '#5e92f3',
+      dark: '#003c8f',
+      contrastText: '#fff',
+    },
+    secondary: {
+      main: '#ff9800', // Orange accent
+      light: '#ffc947',
+      dark: '#c66900',
+      contrastText: '#fff',
+    },
+    background: {
+      default: '#f4f6fb',
+      paper: '#fff',
+    },
+    info: {
+      main: '#0288d1',
+    },
+    warning: {
+      main: '#fbc02d',
+    },
+    error: {
+      main: '#d32f2f',
+    },
+    success: {
+      main: '#388e3c',
+    },
+    text: {
+      primary: '#222b45',
+      secondary: '#6b778c',
+    },
+  },
+  typography: {
+    fontFamily: 'Inter, Roboto, Arial, sans-serif',
+    h1: { fontWeight: 800 },
+    h2: { fontWeight: 700 },
+    h3: { fontWeight: 700 },
+    h4: { fontWeight: 700 },
+    h5: { fontWeight: 600 },
+    h6: { fontWeight: 600 },
+    button: { fontWeight: 600 },
+  },
+  shape: {
+    borderRadius: 12,
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          textTransform: 'none',
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 16,
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 16,
+        },
+      },
+    },
+  },
+});
+
+// Define routes with layout
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <Navbar />,
+    children: [
+      {
+        index: true,
+        element: <Landing />
+      },
+      {
+        path: 'search',
+        element: <FlightSearch />
+      },
+      {
+        path: 'bookings',
+        element: <BookingHistory />
+      },
+      {
+        path: 'analytics',
+        element: <PriceAnalytics />
+      },
+      {
+        path: '*',
+        element: <Navigate to="/" replace />
+      }
+    ]
+  }
+]);
+
+function App() {
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <RouterProvider router={router} />
+    </ThemeProvider>
+  );
+}
+
+export default App;
