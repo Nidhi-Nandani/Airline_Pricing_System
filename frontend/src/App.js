@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   createBrowserRouter,
   RouterProvider,
@@ -11,6 +11,9 @@ import FlightSearch from './components/FlightSearch';
 import BookingHistory from './components/BookingHistory';
 import PriceAnalytics from './components/PriceAnalytics';
 import Navbar from './components/Navbar';
+import BookingPage from './components/BookingPage';
+import Login from './components/Login';
+import Register from './components/Register';
 
 const theme = createTheme({
   palette: {
@@ -87,36 +90,66 @@ const theme = createTheme({
 });
 
 // Define routes with layout
-const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <Navbar />,
-    children: [
-      {
-        index: true,
-        element: <Landing />
-      },
-      {
-        path: 'search',
-        element: <FlightSearch />
-      },
-      {
-        path: 'bookings',
-        element: <BookingHistory />
-      },
-      {
-        path: 'analytics',
-        element: <PriceAnalytics />
-      },
-      {
-        path: '*',
-        element: <Navigate to="/" replace />
-      }
-    ]
+function PrivateRoute({ children }) {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    return <Navigate to="/login" replace />;
   }
-]);
+  return children;
+}
 
 function App() {
+  const router = createBrowserRouter([
+    {
+      path: '/',
+      element: <Landing />,
+    },
+    {
+      path: '/login',
+      element: <Login onLoginSuccess={() => window.location.href = '/search'} />,
+    },
+    {
+      path: '/register',
+      element: <Register onRegisterSuccess={() => window.location.href = '/login'} />,
+    },
+    {
+      path: '/search',
+      element: (
+        <PrivateRoute>
+          <Navbar />
+          <FlightSearch />
+        </PrivateRoute>
+      ),
+    },
+    {
+      path: '/book/:flightNumber',
+      element: (
+        <PrivateRoute>
+          <Navbar />
+          <BookingPage />
+        </PrivateRoute>
+      ),
+    },
+    {
+      path: '/bookings',
+      element: (
+        <PrivateRoute>
+          <Navbar />
+          <BookingHistory />
+        </PrivateRoute>
+      ),
+    },
+    {
+      path: '/analytics',
+      element: (
+        <PrivateRoute>
+          <Navbar />
+          <PriceAnalytics />
+        </PrivateRoute>
+      ),
+    },
+  ]);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />

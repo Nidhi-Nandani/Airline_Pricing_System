@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 
 class Airport(models.Model):
     iata_code = models.CharField(max_length=3, unique=True)
@@ -45,6 +46,7 @@ class Booking(models.Model):
     passenger_name = models.CharField(max_length=100, blank=True, null=True)
     phone = models.CharField(max_length=15, blank=True, null=True)
     booked = models.BooleanField(default=True)
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name="bookings", null=True, blank=True)
 
     def __str__(self):
         return f"Booking {self.id} for {self.flight.flight_number}"

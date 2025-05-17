@@ -15,6 +15,8 @@ from collections import defaultdict
 from django.core.cache import cache
 from random import randint
 import requests
+from rest_framework.permissions import IsAuthenticated
+import os
 
 pricing_engine = PricingEngine()
 
@@ -32,37 +34,107 @@ class FlightViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def search_flights(self, request):
-        origin = request.query_params.get('origin', '')
-        destination = request.query_params.get('destination', '')
-        date_str = request.query_params.get('date', '')
+        import random
+        origin = request.query_params.get('origin')
+        destination = request.query_params.get('destination')
         travel_class = request.query_params.get('class', 'Economy')
-        sort_by = request.query_params.get('sort', 'departure_time')  # default sort by departure time
+        date = request.query_params.get('date')
+        sort_by = request.query_params.get('sort', 'departure_time')
 
         try:
-            # Parse the date string to datetime
-            search_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            current_date = timezone.now().date()
-
-            # Validate the search date
-            if search_date < current_date:
-                return Response({"error": "Please select a future date for travel"}, status=400)
-
-            # Filter flights based on the search criteria
-            flights = Flight.objects.filter(
-                origin_airport__iata_code=origin,
-                destination_airport__iata_code=destination,
-                departure_time__date=search_date,
-                travel_class=travel_class
-            ).order_by(sort_by)
-
-            # Serialize and return the flight data
-            serializer = FlightSerializer(flights, many=True)
-            return Response(serializer.data)
-
-        except ValueError:
+            search_date = datetime.strptime(date, '%Y-%m-%d').date()
+        except Exception:
             return Response({"error": "Invalid date format. Use YYYY-MM-DD."}, status=400)
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
+
+        airlines = ['Air India', 'IndiGo', 'SpiceJet', 'Vistara', 'GoAir', 'Akasa Air']
+        airport_objs = Airport.objects.all()
+        origin_airport = airport_objs.filter(iata_code=origin).first()
+        destination_airport = airport_objs.filter(iata_code=destination).first()
+        if not origin_airport or not destination_airport:
+            return Response({"error": "Invalid origin or destination airport."}, status=400)
+
+        flights = []
+        stopover_cities = ['DEL', 'BOM', 'BLR', 'HYD', 'CCU', 'MAA', 'AMD', 'GOI', 'PNQ', 'LKO']
+        # Add 6 direct flights with more price flexibility
+        for i in range(6):
+            base_price = random.randint(3200, 9000)
+            flights.append({
+                'flight_number': f"DR{random.randint(1000,9999)}",
+                'airline': 'ProFlight',
+                'origin_airport': {'city': origin, 'iata_code': origin},
+                'destination_airport': {'city': destination, 'iata_code': destination},
+                'departure_time': f"{date}T{8+i*2:02d}:00:00",
+                'arrival_time': f"{date}T{10+i*2:02d}:00:00",
+                'is_direct': True,
+                'route': [origin, destination],
+                'available_seats': random.randint(5, 30),
+                'travel_class': travel_class,
+                'current_price': base_price if travel_class=='Economy' else (base_price+4000 if travel_class=='Business' else base_price+7000)
+            })
+        # Add 4 indirect flights with clear stopover and more price flexibility
+        for i in range(4):
+            base_price = random.randint(2200, 7000)
+            stopover = random.choice(stopover_cities)
+            while stopover == origin or stopover == destination:
+                stopover = random.choice(stopover_cities)
+            flights.append({
+                'flight_number': f"IN{random.randint(1000,9999)}",
+                'airline': 'ProFlight',
+                'origin_airport': {'city': origin, 'iata_code': origin},
+                'destination_airport': {'city': destination, 'iata_code': destination},
+                'departure_time': f"{date}T{2+i:02d}:00:00",
+                'arrival_time': f"{date}T{5+i:02d}:00:00",
+                'is_direct': False,
+                'route': [origin, stopover, destination],
+                'stopover': stopover,
+                'available_seats': random.randint(5, 30),
+                'travel_class': travel_class,
+                'current_price': int(0.7*base_price) if travel_class=='Economy' else (int(0.7*base_price)+4000 if travel_class=='Business' else int(0.7*base_price)+7000)
+            })
+        # Sorting
+        if sort_by == 'price':
+            flights.sort(key=lambda x: float(x['current_price']))
+        elif sort_by == 'available_seats':
+            flights.sort(key=lambda x: x['available_seats'], reverse=True)
+        elif sort_by == 'class':
+            class_order = {'Economy': 0, 'Business': 1, 'First': 2}
+            flights.sort(key=lambda x: class_order.get(x['travel_class'], 99))
+        else:
+            flights.sort(key=lambda x: x['departure_time'])
+        # Add a unique id for React key
+        for i, f in enumerate(flights):
+            f['id'] = f.get('flight_number', '') + '_' + str(i)
+        return Response(flights)
+
+    @action(detail=False, methods=['post'])
+    def book_flight(self, request):
+        import random
+        import string
+        from django.core.cache import cache
+        data = request.data
+        flight_key = data.get('flight_number')
+        seats_key = f"seats_{flight_key}"
+        booked_seats = int(data.get('num_seats', 1))
+        available_seats = cache.get(seats_key, 20)
+        available_seats = max(0, available_seats - booked_seats)
+        cache.set(seats_key, available_seats, timeout=3600)
+        ticket_id = f"{data.get('flight_number', 'FL')}-{random.randint(100000,999999)}"
+        ticket = {
+            'ticket_id': ticket_id,
+            'flight_number': data.get('flight_number'),
+            'passenger_name': data.get('passenger_name', 'Demo Passenger'),
+            'phone': data.get('phone', ''),
+            'num_seats': booked_seats,
+            'class': data.get('travel_class', 'Economy'),
+            'price': data.get('price', 0),
+            'origin': data.get('origin'),
+            'destination': data.get('destination'),
+            'date': data.get('date'),
+            'status': 'CONFIRMED',
+            'seat_choice': data.get('seat_choice', ''),
+            'meal': data.get('meal', ''),
+        }
+        return Response({'message': 'Booking successful', 'ticket': ticket})
 
     def _update_flight_price(self, flight):
         current_time = timezone.now()
@@ -137,44 +209,66 @@ class FlightViewSet(viewsets.ModelViewSet):
 class BookingViewSet(viewsets.ModelViewSet):
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Return mock bookings from file for the current user
+        username = self.request.user.username
+        bookings_file = f"/tmp/user_bookings_{username}.json"
+        if os.path.exists(bookings_file):
+            with open(bookings_file, 'r') as f:
+                try:
+                    bookings = json.load(f)
+                except Exception:
+                    bookings = []
+        else:
+            bookings = []
+        return bookings
+
+    def list(self, request, *args, **kwargs):
+        # Return all bookings for the current user from file
+        bookings = self.get_queryset()
+        return Response(bookings)
 
     def create(self, request, *args, **kwargs):
-        flight_id = request.data.get('flight')
-        num_seats = request.data.get('num_seats', 1)
-        passenger_name = request.data.get('passenger_name', '')
-        phone = request.data.get('phone', '')
-        customer_email = request.data.get('customer_email', '')
-        if not customer_email:
-            customer_email = f"demo{flight_id}@proflight.com"  # Dummy email for prototype
-        try:
-            flight = Flight.objects.get(id=flight_id)
-        except Flight.DoesNotExist:
-            return Response(
-                {'error': 'Flight not found'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-        if flight.available_seats < int(num_seats):
-            return Response(
-                {'error': 'Not enough seats available'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        # Create booking with current price
-        booking_data = {
-            'flight': flight_id,
-            'num_seats': num_seats,
-            'price_at_booking': float(flight.current_price) * int(num_seats),
-            'passenger_name': passenger_name,
-            'phone': phone,
-            'customer_email': customer_email,
-            'booked': True
+        # Save booking to a per-user file in /tmp
+        import random
+        from datetime import datetime
+        username = request.data.get('user') or request.user.username
+        bookings_file = f"/tmp/user_bookings_{username}.json"
+        booking_id = random.randint(100000, 999999)
+        booking_time = datetime.now().isoformat()
+        booking = {
+            'id': booking_id,
+            'flight_number': request.data.get('flight'),
+            'num_seats': request.data.get('num_seats', 1),
+            'passenger_name': request.data.get('passenger_name', ''),
+            'phone': request.data.get('phone', ''),
+            'customer_email': request.data.get('customer_email', ''),
+            'booked': True,
+            'booking_time': booking_time,
+            'price_at_booking': request.data.get('price', 0),
+            'seat_choice': request.data.get('seat_choice', ''),
+            'meal': request.data.get('meal', ''),
+            'travel_class': request.data.get('travel_class', ''),
+            'origin': request.data.get('origin', ''),
+            'destination': request.data.get('destination', ''),
+            'date': request.data.get('date', ''),
+            'user': username
         }
-        serializer = self.get_serializer(data=booking_data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        # Update flight availability
-        flight.available_seats -= int(num_seats)
-        flight.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Load previous bookings
+        if os.path.exists(bookings_file):
+            with open(bookings_file, 'r') as f:
+                try:
+                    bookings = json.load(f)
+                except Exception:
+                    bookings = []
+        else:
+            bookings = []
+        bookings.append(booking)
+        with open(bookings_file, 'w') as f:
+            json.dump(bookings, f)
+        return Response(booking, status=status.HTTP_201_CREATED)
 
 class PriceHistoryViewSet(viewsets.ViewSet):
     def get_queryset(self):

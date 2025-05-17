@@ -28,16 +28,25 @@ const Landing = () => {
               size="large"
               color="primary"
               startIcon={<FlightTakeoffIcon />}
-              sx={{ mt: 4, px: 5, py: 1.5, fontWeight: 600, fontSize: '1.2rem', borderRadius: 3 }}
-              onClick={() => navigate('/search')}
+              sx={{ mt: 4, px: 5, py: 1.5, fontWeight: 600, fontSize: '1.2rem', borderRadius: 3, mr: 2 }}
+              onClick={() => navigate('/login')}
             >
-              Search Flights
+              Sign In
+            </Button>
+            <Button
+              variant="outlined"
+              size="large"
+              color="primary"
+              sx={{ mt: 4, px: 5, py: 1.5, fontWeight: 600, fontSize: '1.2rem', borderRadius: 3 }}
+              onClick={() => navigate('/register')}
+            >
+              Sign Up
             </Button>
           </Grid>
           <Grid item xs={12} md={5}>
             <Box
               component="img"
-              src="/logo512.png"
+              src="/plane.png"
               alt="Flight Booking"
               sx={{ width: '100%', maxWidth: 340, mx: 'auto', display: 'block', borderRadius: 4, boxShadow: 3 }}
             />

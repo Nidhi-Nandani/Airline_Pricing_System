@@ -19,7 +19,9 @@ class Command(BaseCommand):
     def import_airports(self):
         # Get the absolute path to the CSV file
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        airports_csv = os.path.join(base_dir, '..', 'Airports.csv')
+        airports_csv = os.path.join(base_dir, 'airline_pricing', 'Airports.csv')
+        if not os.path.exists(airports_csv):
+            airports_csv = os.path.join(base_dir, 'airline_pricing', '..', 'Airports.csv')
         
         # Delete all existing airports first to ensure we have clean data
         Airport.objects.all().delete()

@@ -26,7 +26,7 @@ const FlightResults = ({ flights, onBook }) => {
   return (
     <Grid container spacing={3} sx={{ mt: 2 }}>
       {flights.map((flight) => (
-        <Grid item xs={12} md={6} lg={4} key={flight.id}>
+        <Grid item xs={12} md={6} lg={4} key={flight.flight_number + '_' + flight.departure_time}>
           <Card sx={{ borderRadius: 4, boxShadow: 4, transition: '0.2s', '&:hover': { boxShadow: 8 } }}>
             <CardContent>
               <Box display="flex" alignItems="center" mb={1}>
@@ -53,6 +53,11 @@ const FlightResults = ({ flights, onBook }) => {
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 {flight.available_seats} seats left
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {flight.is_direct
+                  ? `Route: ${flight.origin_airport.city} (${flight.origin_airport.iata_code}) → ${flight.destination_airport.city} (${flight.destination_airport.iata_code})`
+                  : `Route: ${flight.origin_airport.city} (${flight.origin_airport.iata_code}) → ${flight.stopover} (Stopover) → ${flight.destination_airport.city} (${flight.destination_airport.iata_code})`}
               </Typography>
               <Button
                 variant="contained"

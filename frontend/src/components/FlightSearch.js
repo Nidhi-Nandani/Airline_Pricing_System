@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   Container, Paper, Grid, TextField, Button, Typography,
-  Autocomplete, FormControl, InputLabel, Select, MenuItem, CircularProgress, Alert
+  Autocomplete, FormControl, InputLabel, Select, MenuItem, CircularProgress, Alert, Box
 } from '@mui/material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import axios from 'axios';
 import FlightResults from './FlightResults';
-import BookingModal from './BookingModal';
+import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
@@ -19,8 +19,7 @@ const FlightSearch = () => {
   const [submitted, setSubmitted] = useState(false);
   const [sortBy, setSortBy] = useState('departure_time');
   const [showResults, setShowResults] = useState(false);
-  const [selectedFlight, setSelectedFlight] = useState(null);
-  const [bookingOpen, setBookingOpen] = useState(false);
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     origin: '',
@@ -53,6 +52,13 @@ const FlightSearch = () => {
     setErrorMessage('');
     setSubmitted(true);
     setShowResults(false);
+    // Debug: log formData before validation
+    console.log('Flight search formData:', formData);
+    if (formData.origin === formData.destination && formData.origin && formData.destination) {
+      setErrorMessage('Origin and destination cannot be the same. Please select different locations.');
+      setLoading(false);
+      return;
+    }
 
     if (!formData.origin || !formData.destination || !formData.date || !formData.travelClass) {
       setErrorMessage('Please fill in all required fields');
@@ -100,8 +106,11 @@ const FlightSearch = () => {
   };
 
   const handleBook = (flight) => {
-    setSelectedFlight(flight);
-    setBookingOpen(true);
+    navigate(`/book/${flight.flight_number}`, {
+      state: {
+        flight
+      }
+    });
   };
 
   return (
@@ -192,15 +201,28 @@ const FlightSearch = () => {
             </Grid>
           </form>
         </Paper>
+        {showResults && (
+          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Sort By</InputLabel>
+              <Select
+                value={sortBy}
+                label="Sort By"
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <MenuItem value="departure_time">Departure Time</MenuItem>
+                <MenuItem value="price">Price (Low to High)</MenuItem>
+                <MenuItem value="available_seats">Seats Available (High to Low)</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        )}
         {errorMessage && (
           <Alert severity="warning" sx={{ mb: 2 }}>
             {errorMessage}
           </Alert>
         )}
         {showResults && <FlightResults flights={flights} onBook={handleBook} />}
-        {selectedFlight && selectedFlight.origin_airport && selectedFlight.destination_airport && (
-          <BookingModal open={bookingOpen} onClose={() => setBookingOpen(false)} flight={selectedFlight} />
-        )}
       </Container>
     </LocalizationProvider>
   );
